@@ -7,48 +7,67 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/Dotnet.gitignore
 
+# Ignore Visual Studio and editor folders
+.vs/
+.vscode/
+.idea/
+
+# Build folders
+**/[Bb]in/
+**/[Oo]bj/
+**/bin/
+**/obj/
+**/publish/
+
 # Build results
-[Dd]ebug/
-[Dd]ebugPublic/
-[Rr]elease/
-[Rr]eleases/
-x64/
-x86/
-[Ww][Ii][Nn]32/
-[Aa][Rr][Mm]/
-[Aa][Rr][Mm]64/
-bld/
-[Bb]in/
-[Oo]bj/
-[Ll]og/
-[Ll]ogs/
+*.dll
+*.exe
+*.pdb
+*.apphost
+
+# RID-specific apphost
+apphost.exe
+
+# Rider/IDE files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# NuGet packages
+*.nupkg
+packages/
+
+# Visual Studio publish folder
+PublishProfiles/
 
 # .NET Core
 project.lock.json
-project.fragment.lock.json
-artifacts/
+project.assets.json
+*.xproj
 
-# ASP.NET Scaffolding
-ScaffoldingReadMe.txt
+# Logs
+*.log
+[Ll]og/
 
-# NuGet Packages
-*.nupkg
-# NuGet Symbol Packages
-*.snupkg
-
-# Others
-~$*
-*~
-CodeCoverage/
+# Test results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
 
 # MSBuild Binary and Structured Log
 *.binlog
-
-# MSTest test Results
-[Tt]est[Rr]esult*/
-[Bb]uild[Ll]og.*
 
 # NUnit
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Optional: user secrets
+secrets.json
+
+# Keep launchSettings.json if you need it in source control
+# (do not ignore by default)
