@@ -1,6 +1,5 @@
 ﻿using AI.FinancialKnowledgeCopilot.Application;
 using AI.FinancialKnowledgeCopilot.Domain;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AI.FinancialKnowledgeCopilot.Api.Controller
