@@ -1,0 +1,12 @@
+C:\Repos\AI.FinancialKnowledgeCopilot\AI.FinancialKnowledgeCopilot.Application\bin\Debug\net10.0\AI.FinancialKnowledgeCopilot.Application.deps.json
+C:\Repos\AI.FinancialKnowledgeCopilot\AI.FinancialKnowledgeCopilot.Application\bin\Debug\net10.0\AI.FinancialKnowledgeCopilot.Application.dll
+C:\Repos\AI.FinancialKnowledgeCopilot\AI.FinancialKnowledgeCopilot.Application\bin\Debug\net10.0\AI.FinancialKnowledgeCopilot.Application.pdb
+C:\Repos\AI.FinancialKnowledgeCopilot\AI.FinancialKnowledgeCopilot.Application\obj\Debug\net10.0\AI.FinancialKnowledgeCopilot.Application.GeneratedMSBuildEditorConfig.editorconfig
+C:\Repos\AI.FinancialKnowledgeCopilot\AI.FinancialKnowledgeCopilot.Application\obj\Debug\net10.0\AI.FinancialKnowledgeCopilot.Application.AssemblyInfoInputs.cache
+C:\Repos\AI.FinancialKnowledgeCopilot\AI.FinancialKnowledgeCopilot.Application\obj\Debug\net10.0\AI.FinancialKnowledgeCopilot.Application.AssemblyInfo.cs
+C:\Repos\AI.FinancialKnowledgeCopilot\AI.FinancialKnowledgeCopilot.Application\obj\Debug\net10.0\AI.FinancialKnowledgeCopilot.Application.csproj.CoreCompileInputs.cache
+C:\Repos\AI.FinancialKnowledgeCopilot\AI.FinancialKnowledgeCopilot.Application\obj\Debug\net10.0\AI.FinancialKnowledgeCopilot.Application.sourcelink.json
+C:\Repos\AI.FinancialKnowledgeCopilot\AI.FinancialKnowledgeCopilot.Application\obj\Debug\net10.0\AI.FinancialKnowledgeCopilot.Application.dll
+C:\Repos\AI.FinancialKnowledgeCopilot\AI.FinancialKnowledgeCopilot.Application\obj\Debug\net10.0\refint\AI.FinancialKnowledgeCopilot.Application.dll
+C:\Repos\AI.FinancialKnowledgeCopilot\AI.FinancialKnowledgeCopilot.Application\obj\Debug\net10.0\AI.FinancialKnowledgeCopilot.Application.pdb
+C:\Repos\AI.FinancialKnowledgeCopilot\AI.FinancialKnowledgeCopilot.Application\obj\Debug\net10.0\ref\AI.FinancialKnowledgeCopilot.Application.dll

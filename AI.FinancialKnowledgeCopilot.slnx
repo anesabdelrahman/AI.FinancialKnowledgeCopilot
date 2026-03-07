@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="README.md" />
+  </Folder>
+  <Project Path="AI.FinancialKnowledgeCopilot.Api/AI.FinancialKnowledgeCopilot.Api.csproj" />
+  <Project Path="AI.FinancialKnowledgeCopilot.Application/AI.FinancialKnowledgeCopilot.Application.csproj" />
+  <Project Path="AI.FinancialKnowledgeCopilot.Domain/AI.FinancialKnowledgeCopilot.Domain.csproj" />
+  <Project Path="AI.FinancialKnowledgeCopilot.Infrastructure/AI.FinancialKnowledgeCopilot.Infrastructure.csproj" />
+  <Project Path="AI.FinancialKnowledgeCopilot.Tests/AI.FinancialKnowledgeCopilot.Tests.csproj" />
+  <Project Path="AI.FinancialKnowledgeCopilot.Worker/AI.FinancialKnowledgeCopilot.Worker.csproj" />
+</Solution>
