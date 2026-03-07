@@ -10,4 +10,8 @@
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.2" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\AI.FinancialKnowledgeCopilot.Application\AI.FinancialKnowledgeCopilot.Application.csproj" />
+  </ItemGroup>
+
 </Project>

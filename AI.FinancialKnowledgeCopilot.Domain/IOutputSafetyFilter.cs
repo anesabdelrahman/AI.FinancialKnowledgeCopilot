@@ -1,6 +1,6 @@
 ﻿namespace AI.FinancialKnowledgeCopilot.Domain;
 
-public class Class1
+public interface IOutputSafetyFilter
 {
-
+    
 }
