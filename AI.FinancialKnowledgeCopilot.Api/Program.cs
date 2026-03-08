@@ -18,6 +18,8 @@ builder.Services.AddControllers();
 builder.Services.AddScoped<IQueryService, QueryService>();
 builder.Services.AddScoped<IEmbeddingService, EmbeddingService>();
 builder.Services.AddScoped<ILLMService, LLMService>();
+builder.Services.AddScoped<IPiiDetector, RegexPiiDetector>();
+builder.Services.AddScoped<IOutputSafetyFilter, OutputSafetyFilter>();
 builder.Services.AddHostedService<Worker>();
 
 if (builder.Environment.IsDevelopment()) //Should have an else block to register Prod implementation, which is not ready yet.

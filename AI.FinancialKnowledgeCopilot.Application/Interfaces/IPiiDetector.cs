@@ -1,6 +1,9 @@
-﻿namespace AI.FinancialKnowledgeCopilot.Application.Interfaces;
+﻿using AI.FinancialKnowledgeCopilot.Application.Dto;
+
+namespace AI.FinancialKnowledgeCopilot.Application.Interfaces;
 
 public interface IPiiDetector
 {
-    //TODO: I AM PENDING!
+    PiiDetectionResult Scrub(string text);
+    bool ContainsPii(string text);
 }

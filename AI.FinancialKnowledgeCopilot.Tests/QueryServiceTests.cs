@@ -3,6 +3,7 @@ using AI.FinancialKnowledgeCopilot.Application.Interfaces;
 using AI.FinancialKnowledgeCopilot.Application.Services;
 using AI.FinancialKnowledgeCopilot.Domain;
 using AI.FinancialKnowledgeCopilot.Infrastructure;
+using Microsoft.Extensions.Logging;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
@@ -55,6 +56,36 @@ internal class FakeVectorStore : IVectorStore
         => Task.FromResult<IEnumerable<DocumentChunk>>(ChunksToReturn);
 }
 
+internal class FakePiiDetector : IPiiDetector
+{
+    public bool ContainsPii(string text)
+    {
+        return text.Length > 0;
+    }
+
+    public PiiDetectionResult Scrub(string text)
+    {
+        return new PiiDetectionResult
+        {
+            Findings = new List<PiiMatch>(),
+            ScrubbedText = $"{text} - scrubbed"
+        };
+    }
+}
+
+internal class FakeOutputSafetyFilter : IOutputSafetyFilter
+{
+    public SafetyFilterResult Apply(string response)
+    {
+        return new SafetyFilterResult
+        {
+            FilteredResponse = $"{response}  - scrubbedd",
+            PiiWasRedacted = true,
+            RedactedItems = new List<PiiMatch>()
+        };
+    }
+}
+
 #endregion
 
 // ---------------------------------------------------------------------------
@@ -67,6 +98,11 @@ public class QueryServiceTests
     private FakeEmbeddingService _embeddingService = null!;
     private FakeVectorStore _vectorStore = null!;
     private FakeLLMService _llmService = null!;
+    private FakePiiDetector _piiDetector = null!;
+    private FakeOutputSafetyFilter _safetyFilter = null!;
+
+    private Logger<QueryService> _logger;
+
     private QueryService _sut = null!;
 
     [SetUp]
@@ -75,7 +111,10 @@ public class QueryServiceTests
         _embeddingService = new FakeEmbeddingService();
         _vectorStore = new FakeVectorStore();
         _llmService = new FakeLLMService();
-        _sut = new QueryService(_embeddingService, _vectorStore, _llmService);
+        _piiDetector = new FakePiiDetector();
+        _safetyFilter = new FakeOutputSafetyFilter();
+
+        _sut = new QueryService(_embeddingService, _vectorStore, _llmService, _piiDetector, _safetyFilter, _logger);
     }
 
     [Test]
@@ -89,7 +128,7 @@ public class QueryServiceTests
 
         var result = await _sut.AskAsync(new QueryRequest { Query = "Revenue?" }, CancellationToken.None);
 
-        Assert.That(result.Answer, Is.EqualTo("Revenue grew by 12%"));
+        Assert.That(result.Answer.Contains("Revenue grew by 12%"));
     }
 
     [Test]
@@ -99,7 +138,7 @@ public class QueryServiceTests
 
         await _sut.AskAsync(new QueryRequest { Query = query }, CancellationToken.None);
 
-        Assert.That(_embeddingService.ReceivedInputs, Contains.Item(query));
+        Assert.That(_embeddingService.ReceivedInputs.Any(s => s.Contains(query)));
     }
 
     [Test]
@@ -109,7 +148,7 @@ public class QueryServiceTests
 
         await _sut.AskAsync(new QueryRequest { Query = query }, CancellationToken.None);
 
-        Assert.That(_llmService.ReceivedQuestion, Is.EqualTo(query));
+        Assert.That(_llmService.ReceivedQuestion.Contains(query));
     }
 
     [Test]
