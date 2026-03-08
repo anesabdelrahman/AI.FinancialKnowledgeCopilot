@@ -13,6 +13,7 @@
   <ItemGroup>
     <ProjectReference Include="..\AI.FinancialKnowledgeCopilot.Application\AI.FinancialKnowledgeCopilot.Application.csproj" />
     <ProjectReference Include="..\AI.FinancialKnowledgeCopilot.Infrastructure\AI.FinancialKnowledgeCopilot.Infrastructure.csproj" />
+    <ProjectReference Include="..\AI.FinancialKnowledgeCopilot.Worker\AI.FinancialKnowledgeCopilot.Worker.csproj" />
   </ItemGroup>
 
 </Project>

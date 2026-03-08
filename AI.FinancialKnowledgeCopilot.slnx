@@ -10,6 +10,7 @@
   </Folder>
   <Folder Name="/Infrastructure/">
     <Project Path="AI.FinancialKnowledgeCopilot.Infrastructure/AI.FinancialKnowledgeCopilot.Infrastructure.csproj" />
+    <Project Path="AI.FinancialKnowledgeCopilot.Worker/AI.FinancialKnowledgeCopilot.Worker.csproj" />
   </Folder>
   <Folder Name="/Solution Items/">
     <File Path="README.md" />
