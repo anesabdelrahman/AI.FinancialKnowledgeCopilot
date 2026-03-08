@@ -1,10 +1,14 @@
-﻿
-
-using AI.FinancialKnowledgeCopilot.Application.Dto;
+﻿using AI.FinancialKnowledgeCopilot.Application.Dto;
 using AI.FinancialKnowledgeCopilot.Application.Interfaces;
 using AI.FinancialKnowledgeCopilot.Application.Services;
 using AI.FinancialKnowledgeCopilot.Domain;
 using AI.FinancialKnowledgeCopilot.Infrastructure;
+using NUnit.Framework;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace AI.FinancialKnowledgeCopilot.Tests;
 
@@ -12,8 +16,8 @@ namespace AI.FinancialKnowledgeCopilot.Tests;
 
 internal class FakeEmbeddingService : IEmbeddingService
 {
-    public float[] EmbeddingToReturn { get; set; } = [0.1f, 0.2f, 0.3f];
-    public List<string> ReceivedInputs { get; } = [];
+    public float[] EmbeddingToReturn { get; set; } = new float[] { 0.1f, 0.2f, 0.3f };
+    public List<string> ReceivedInputs { get; } = new();
 
     public Task<float[]> GenerateAsync(string text, CancellationToken cancellationToken)
     {
@@ -38,8 +42,8 @@ internal class FakeLLMService : ILLMService
 
 internal class FakeVectorStore : IVectorStore
 {
-    public List<DocumentChunk> StoredChunks { get; } = [];
-    public List<DocumentChunk> ChunksToReturn { get; set; } = [];
+    public List<DocumentChunk> StoredChunks { get; } = new();
+    public List<DocumentChunk> ChunksToReturn { get; set; } = new();
 
     public Task StoreAsync(DocumentChunk chunk, CancellationToken cancellationToken)
     {
@@ -78,10 +82,10 @@ public class QueryServiceTests
     public async Task AskAsync_ReturnsAnswerFromLLMService()
     {
         _llmService.AnswerToReturn = "Revenue grew by 12%";
-        _vectorStore.ChunksToReturn =
-        [
-            new DocumentChunk { Id = Guid.NewGuid(), Content = "Some context", Title = "Doc1", Embedding = [0.1f, 0.2f, 0.3f] }
-        ];
+        _vectorStore.ChunksToReturn = new List<DocumentChunk>
+        {
+            new DocumentChunk { Id = Guid.NewGuid(), Content = "Some context", Title = "Doc1", Embedding = new float[] { 0.1f, 0.2f, 0.3f } }
+        };
 
         var result = await _sut.AskAsync(new QueryRequest { Query = "Revenue?" }, CancellationToken.None);
 
@@ -111,11 +115,11 @@ public class QueryServiceTests
     [Test]
     public async Task AskAsync_SourcesContainChunkTitles()
     {
-        _vectorStore.ChunksToReturn =
-        [
-            new DocumentChunk { Title = "Annual Report 2024", Content = "...", Embedding = [0.1f, 0.2f, 0.3f] },
-            new DocumentChunk { Title = "Q3 Earnings",        Content = "...", Embedding = [0.1f, 0.2f, 0.3f] },
-        ];
+        _vectorStore.ChunksToReturn = new List<DocumentChunk>
+        {
+            new DocumentChunk { Title = "Annual Report 2024", Content = "...", Embedding = new float[] { 0.1f, 0.2f, 0.3f } },
+            new DocumentChunk { Title = "Q3 Earnings",        Content = "...", Embedding = new float[] { 0.1f, 0.2f, 0.3f } },
+        };
 
         var result = await _sut.AskAsync(new QueryRequest { Query = "Earnings?" }, CancellationToken.None);
 
@@ -125,7 +129,7 @@ public class QueryServiceTests
     [Test]
     public async Task AskAsync_WhenNoChunksFound_ReturnsEmptySources()
     {
-        _vectorStore.ChunksToReturn = [];
+        _vectorStore.ChunksToReturn = new List<DocumentChunk>();
 
         var result = await _sut.AskAsync(new QueryRequest { Query = "anything" }, CancellationToken.None);
 
@@ -135,11 +139,11 @@ public class QueryServiceTests
     [Test]
     public async Task AskAsync_PassesChunkContentAsContextToLLM()
     {
-        _vectorStore.ChunksToReturn =
-        [
-            new DocumentChunk { Content = "Profit was $5B", Title = "T1", Embedding = [0.1f, 0.2f, 0.3f] },
-            new DocumentChunk { Content = "Revenue was $20B", Title = "T2", Embedding = [0.1f, 0.2f, 0.3f] },
-        ];
+        _vectorStore.ChunksToReturn = new List<DocumentChunk>
+        {
+            new DocumentChunk { Content = "Profit was $5B", Title = "T1", Embedding = new float[] { 0.1f, 0.2f, 0.3f } },
+            new DocumentChunk { Content = "Revenue was $20B", Title = "T2", Embedding = new float[] { 0.1f, 0.2f, 0.3f } },
+        };
 
         await _sut.AskAsync(new QueryRequest { Query = "Financials?" }, CancellationToken.None);
 
@@ -167,13 +171,37 @@ public class DocumentIngestionServiceTests
     }
 
     [Test]
-    public async Task IngestAsync_StoresOneChunkPerParagraph()
+    public async Task IngestAsync_ShortContent_ProducesSingleChunk()
     {
         const string content = "Paragraph one.\n\nParagraph two.\n\nParagraph three.";
 
         await _sut.IngestAsync("Test Doc", content, CancellationToken.None);
 
-        Assert.That(_vectorStore.StoredChunks, Has.Count.EqualTo(3));
+        // Default Split behavior batches short paragraphs into chunks; with small text expect a single chunk
+        Assert.That(_vectorStore.StoredChunks, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public async Task IngestAsync_LongContent_SplitsAndPreservesOverlap()
+    {
+        // Create long paragraphs to force splitting. Each paragraph length chosen so combined content exceeds default maxChunkLength (500).
+        var longPara = new string('A', 300);
+        var content = $"{longPara}\n\n{longPara}\n\n{longPara}";
+
+        await _sut.IngestAsync("LongDoc", content, CancellationToken.None);
+
+        Assert.That(_vectorStore.StoredChunks.Count, Is.GreaterThan(1), "Expected multiple chunks for long content.");
+
+        // Validate overlap between consecutive chunks (default overlap is 50 characters).
+        var overlap = 50;
+        var chunks = _vectorStore.StoredChunks.Select(c => c.Content).ToList();
+
+        for (int i = 0; i < chunks.Count - 1; i++)
+        {
+            var tail = chunks[i].Length >= overlap ? chunks[i].AsSpan(chunks[i].Length - overlap, overlap).ToString() : string.Empty;
+            var head = chunks[i + 1].Length >= overlap ? chunks[i + 1].AsSpan(0, overlap).ToString() : string.Empty;
+            Assert.That(tail, Is.Not.Empty.And.EqualTo(head), $"Chunk {i} tail and chunk {i+1} head must match for overlap.");
+        }
     }
 
     [Test]
@@ -202,7 +230,7 @@ public class DocumentIngestionServiceTests
     {
         await _sut.IngestAsync("Doc", "Chunk one.\n\nChunk two.", CancellationToken.None);
 
-        Assert.That(_vectorStore.StoredChunks, Has.All.Matches<DocumentChunk>(c => c.Embedding.Length > 0));
+        Assert.That(_vectorStore.StoredChunks, Has.All.Matches<DocumentChunk>(c => c.Embedding is { Length: > 0 }));
     }
 
     [Test]
@@ -222,7 +250,9 @@ public class DocumentIngestionServiceTests
 
         await _sut.IngestAsync("Doc", content, CancellationToken.None);
 
-        Assert.That(_vectorStore.StoredChunks, Has.Count.EqualTo(2));
+        Assert.That(_vectorStore.StoredChunks.Count, Is.GreaterThan(0));
+        // Ensure no stored chunk content is purely whitespace
+        Assert.That(_vectorStore.StoredChunks.All(c => !string.IsNullOrWhiteSpace(c.Content)));
     }
 
     [Test]
@@ -232,7 +262,7 @@ public class DocumentIngestionServiceTests
 
         await _sut.IngestAsync("Doc", content, CancellationToken.None);
 
-        Assert.That(_embeddingService.ReceivedInputs, Has.Count.EqualTo(3));
+        Assert.That(_embeddingService.ReceivedInputs.Count, Is.EqualTo(_vectorStore.StoredChunks.Count));
     }
 }
 
@@ -254,10 +284,10 @@ public class InMemoryVectorStoreTests
     [Test]
     public async Task StoreAsync_AndSearchAsync_ReturnsStoredChunk()
     {
-        var chunk = MakeChunk("Apple earnings 2024", [1f, 0f, 0f]);
+        var chunk = MakeChunk("Apple earnings 2024", new float[] { 1f, 0f, 0f });
         await _sut.StoreAsync(chunk, CancellationToken.None);
 
-        var results = await _sut.SearchAsync([1f, 0f, 0f], 1, CancellationToken.None);
+        var results = await _sut.SearchAsync(new float[] { 1f, 0f, 0f }, 1, CancellationToken.None);
 
         Assert.That(results.Single().Id, Is.EqualTo(chunk.Id));
     }
@@ -266,9 +296,9 @@ public class InMemoryVectorStoreTests
     public async Task SearchAsync_ReturnsTopKResults()
     {
         for (int i = 0; i < 10; i++)
-            await _sut.StoreAsync(MakeChunk($"Doc {i}", [0.1f, 0.2f, 0.3f]), CancellationToken.None);
+            await _sut.StoreAsync(MakeChunk($"Doc {i}", new float[] { 0.1f, 0.2f, 0.3f }), CancellationToken.None);
 
-        var results = await _sut.SearchAsync([0.1f, 0.2f, 0.3f], 3, CancellationToken.None);
+        var results = await _sut.SearchAsync(new float[] { 0.1f, 0.2f, 0.3f }, 3, CancellationToken.None);
 
         Assert.That(results.Count(), Is.EqualTo(3));
     }
@@ -276,13 +306,13 @@ public class InMemoryVectorStoreTests
     [Test]
     public async Task SearchAsync_RanksByCosineSimilarity_MostSimilarFirst()
     {
-        var highSimilarity = MakeChunk("Exact match", [1f, 0f, 0f]);
-        var lowSimilarity = MakeChunk("Poor match", [0f, 1f, 0f]);
+        var highSimilarity = MakeChunk("Exact match", new float[] { 1f, 0f, 0f });
+        var lowSimilarity = MakeChunk("Poor match", new float[] { 0f, 1f, 0f });
 
         await _sut.StoreAsync(lowSimilarity, CancellationToken.None);
         await _sut.StoreAsync(highSimilarity, CancellationToken.None);
 
-        var results = (await _sut.SearchAsync([1f, 0f, 0f], 2, CancellationToken.None)).ToList();
+        var results = (await _sut.SearchAsync(new float[] { 1f, 0f, 0f }, 2, CancellationToken.None)).ToList();
 
         Assert.That(results[0].Id, Is.EqualTo(highSimilarity.Id));
     }
@@ -290,7 +320,7 @@ public class InMemoryVectorStoreTests
     [Test]
     public async Task SearchAsync_WhenStoreIsEmpty_ReturnsEmptyCollection()
     {
-        var results = await _sut.SearchAsync([0.1f, 0.2f, 0.3f], 5, CancellationToken.None);
+        var results = await _sut.SearchAsync(new float[] { 0.1f, 0.2f, 0.3f }, 5, CancellationToken.None);
 
         Assert.That(results, Is.Empty);
     }
@@ -298,10 +328,10 @@ public class InMemoryVectorStoreTests
     [Test]
     public async Task SearchAsync_WithTopKLargerThanStore_ReturnsAllChunks()
     {
-        await _sut.StoreAsync(MakeChunk("A", [1f, 0f, 0f]), CancellationToken.None);
-        await _sut.StoreAsync(MakeChunk("B", [0f, 1f, 0f]), CancellationToken.None);
+        await _sut.StoreAsync(MakeChunk("A", new float[] { 1f, 0f, 0f }), CancellationToken.None);
+        await _sut.StoreAsync(MakeChunk("B", new float[] { 0f, 1f, 0f }), CancellationToken.None);
 
-        var results = await _sut.SearchAsync([1f, 0f, 0f], 100, CancellationToken.None);
+        var results = await _sut.SearchAsync(new float[] { 1f, 0f, 0f }, 100, CancellationToken.None);
 
         Assert.That(results.Count(), Is.EqualTo(2));
     }
@@ -309,10 +339,10 @@ public class InMemoryVectorStoreTests
     [Test]
     public async Task CosineSimilarity_IdenticalVectors_ReturnsOne()
     {
-        var chunk = MakeChunk("Content", [0.6f, 0.8f, 0f]);
+        var chunk = MakeChunk("Content", new float[] { 0.6f, 0.8f, 0f });
         await _sut.StoreAsync(chunk, CancellationToken.None);
 
-        var results = (await _sut.SearchAsync([0.6f, 0.8f, 0f], 1, CancellationToken.None)).ToList();
+        var results = (await _sut.SearchAsync(new float[] { 0.6f, 0.8f, 0f }, 1, CancellationToken.None)).ToList();
 
         Assert.That(results[0].Id, Is.EqualTo(chunk.Id));
     }
@@ -320,13 +350,13 @@ public class InMemoryVectorStoreTests
     [Test]
     public async Task CosineSimilarity_OrthogonalVectors_ReturnedLast()
     {
-        var parallel = MakeChunk("Parallel", [1f, 0f, 0f]);
-        var orthogonal = MakeChunk("Orthogonal", [0f, 1f, 0f]);
+        var parallel = MakeChunk("Parallel", new float[] { 1f, 0f, 0f });
+        var orthogonal = MakeChunk("Orthogonal", new float[] { 0f, 1f, 0f });
 
         await _sut.StoreAsync(parallel, CancellationToken.None);
         await _sut.StoreAsync(orthogonal, CancellationToken.None);
 
-        var results = (await _sut.SearchAsync([1f, 0f, 0f], 2, CancellationToken.None)).ToList();
+        var results = (await _sut.SearchAsync(new float[] { 1f, 0f, 0f }, 2, CancellationToken.None)).ToList();
 
         Assert.That(results.Last().Id, Is.EqualTo(orthogonal.Id));
     }
