@@ -17,6 +17,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\AI.FinancialKnowledgeCopilot.Application\AI.FinancialKnowledgeCopilot.Application.csproj" />
+    <ProjectReference Include="..\AI.FinancialKnowledgeCopilot.Domain\AI.FinancialKnowledgeCopilot.Domain.csproj" />
+    <ProjectReference Include="..\AI.FinancialKnowledgeCopilot.Infrastructure\AI.FinancialKnowledgeCopilot.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="NUnit.Framework" />
   </ItemGroup>
 

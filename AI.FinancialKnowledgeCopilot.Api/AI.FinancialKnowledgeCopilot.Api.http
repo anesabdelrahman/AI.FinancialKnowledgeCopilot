@@ -1,6 +1,13 @@
 @AI.FinancialKnowledgeCopilot.Api_HostAddress = http://localhost:5016
 
-GET {{AI.FinancialKnowledgeCopilot.Api_HostAddress}}/weatherforecast/
-Accept: application/json
+### Test POST /api/query
+POST {{AI.FinancialKnowledgeCopilot.Api_HostAddress}}/api/query
+Content-Type: application/json
+
+{
+ "query": "What is the latest quarterly revenue?"
+}
 
 ###
+
+# Response
