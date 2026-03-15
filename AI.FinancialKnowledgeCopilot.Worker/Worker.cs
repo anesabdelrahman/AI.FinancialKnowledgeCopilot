@@ -1,3 +1,4 @@
+using AI.FinancialKnowledgeCopilot.Application;
 using AI.FinancialKnowledgeCopilot.Application.Interfaces;
 using Microsoft.Extensions.Options;
 

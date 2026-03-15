@@ -1,4 +1,4 @@
-﻿namespace AI.FinancialKnowledgeCopilot.Worker;
+﻿namespace AI.FinancialKnowledgeCopilot.Application;
 
 public sealed class IngestionOptions
 {

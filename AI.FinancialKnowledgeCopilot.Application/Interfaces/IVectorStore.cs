@@ -6,5 +6,5 @@ public interface IVectorStore
 {
     Task StoreAsync(DocumentChunk chunk, CancellationToken cancellationToken);
 
-    Task<IEnumerable<DocumentChunk>> SearchAsync(float[] embedding, int topK, CancellationToken cancellationToken);
+    Task<IEnumerable<ScoredChunk>> SearchAsync(float[] embedding, int topK, CancellationToken cancellationToken);
 }

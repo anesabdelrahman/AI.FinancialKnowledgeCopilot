@@ -1,6 +1,10 @@
 ﻿using AI.FinancialKnowledgeCopilot.Application.Dto;
+using AI.FinancialKnowledgeCopilot.Application.Options;
 using AI.FinancialKnowledgeCopilot.Application.Services;
+using AI.FinancialKnowledgeCopilot.Tests.Fakes;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace AI.FinancialKnowledgeCopilot.Tests;
 
@@ -165,21 +169,21 @@ public class RegexPiiDetectorTests
         => Assert.That(_sut.ContainsPii("Quarterly revenue was up 12%."), Is.False);
 }
 
-
-// OutputSafetyFilter
-
-
 [TestFixture]
 public class OutputSafetyFilterTests
 {
     private RegexPiiDetector _piiDetector = null!;
+    private DisclaimerOptions options;
+    private IOptions<DisclaimerOptions> _options;
     private OutputSafetyFilter _sut = null!;
 
     [SetUp]
     public void SetUp()
     {
         _piiDetector = new RegexPiiDetector();
-        _sut = new OutputSafetyFilter(_piiDetector, NullLogger<OutputSafetyFilter>.Instance);
+        _options = OptionsHelper.For<DisclaimerOptions>(options);
+
+        _sut = new OutputSafetyFilter(_piiDetector, _options, NullLogger<OutputSafetyFilter>.Instance);
     }
 
     [Test]
@@ -239,6 +243,8 @@ public class QueryServicePiiGuardrailTests
     private FakeEmbeddingService _embeddingService = null!;
     private FakeVectorStore _vectorStore = null!;
     private FakeLLMService _llmService = null!;
+    private FakeAuditLogger _auditLogger = null!;
+    private FakeQueryRelevanceChecker _queryRelevanceChecker = null!;
     private QueryService _sut = null!;
 
     [SetUp]
@@ -247,16 +253,30 @@ public class QueryServicePiiGuardrailTests
         _embeddingService = new FakeEmbeddingService();
         _vectorStore = new FakeVectorStore();
         _llmService = new FakeLLMService();
+        _auditLogger = new FakeAuditLogger();
+        _queryRelevanceChecker = new FakeQueryRelevanceChecker();
 
+        _sut = BuildQueryService(threshold: 0.5f);
+    }
+
+    private QueryService BuildQueryService(float threshold)
+    {
         var piiDetector = new RegexPiiDetector();
-        var safetyFilter = new OutputSafetyFilter(piiDetector, NullLogger<OutputSafetyFilter>.Instance);
+        var safetyFilter = new OutputSafetyFilter(
+            piiDetector,
+            OptionsHelper.For(new DisclaimerOptions { Enabled = false }),
+            NullLogger<OutputSafetyFilter>.Instance);
 
-        _sut = new QueryService(
+        return new QueryService(
             _embeddingService,
             _vectorStore,
             _llmService,
             piiDetector,
             safetyFilter,
+            _queryRelevanceChecker,
+            _auditLogger,
+            OptionsHelper.For(new QueryOptions { ConfidenceThreshold = threshold }),
+            OptionsHelper.For(new RelevanceOptions { Enabled = true }),
             NullLogger<QueryService>.Instance);
     }
 

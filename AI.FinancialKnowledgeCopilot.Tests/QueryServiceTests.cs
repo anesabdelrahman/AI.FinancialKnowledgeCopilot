@@ -1,96 +1,14 @@
 ﻿using AI.FinancialKnowledgeCopilot.Application.Dto;
-using AI.FinancialKnowledgeCopilot.Application.Interfaces;
+using AI.FinancialKnowledgeCopilot.Application.Options;
 using AI.FinancialKnowledgeCopilot.Application.Services;
 using AI.FinancialKnowledgeCopilot.Domain;
 using AI.FinancialKnowledgeCopilot.Infrastructure;
+using AI.FinancialKnowledgeCopilot.Tests.Fakes;
 using Microsoft.Extensions.Logging;
-using NUnit.Framework;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace AI.FinancialKnowledgeCopilot.Tests;
-
-#region Fakes
-
-internal class FakeEmbeddingService : IEmbeddingService
-{
-    public float[] EmbeddingToReturn { get; set; } = new float[] { 0.1f, 0.2f, 0.3f };
-    public List<string> ReceivedInputs { get; } = new();
-
-    public Task<float[]> GenerateAsync(string text, CancellationToken cancellationToken)
-    {
-        ReceivedInputs.Add(text);
-        return Task.FromResult(EmbeddingToReturn);
-    }
-}
-
-internal class FakeLLMService : ILLMService
-{
-    public string AnswerToReturn { get; set; } = "Fake LLM answer";
-    public string? ReceivedQuestion { get; private set; }
-    public IEnumerable<string>? ReceivedContext { get; private set; }
-
-    public Task<string> GenerateAnswerAsync(string question, IEnumerable<string> context, CancellationToken cancellationToken)
-    {
-        ReceivedQuestion = question;
-        ReceivedContext = context;
-        return Task.FromResult(AnswerToReturn);
-    }
-}
-
-internal class FakeVectorStore : IVectorStore
-{
-    public List<DocumentChunk> StoredChunks { get; } = new();
-    public List<DocumentChunk> ChunksToReturn { get; set; } = new();
-
-    public Task StoreAsync(DocumentChunk chunk, CancellationToken cancellationToken)
-    {
-        StoredChunks.Add(chunk);
-        return Task.CompletedTask;
-    }
-
-    public Task<IEnumerable<DocumentChunk>> SearchAsync(float[] embedding, int topK, CancellationToken cancellationToken)
-        => Task.FromResult<IEnumerable<DocumentChunk>>(ChunksToReturn);
-}
-
-internal class FakePiiDetector : IPiiDetector
-{
-    public bool ContainsPii(string text)
-    {
-        return text.Length > 0;
-    }
-
-    public PiiDetectionResult Scrub(string text)
-    {
-        return new PiiDetectionResult
-        {
-            Findings = new List<PiiMatch>(),
-            ScrubbedText = $"{text} - scrubbed"
-        };
-    }
-}
-
-internal class FakeOutputSafetyFilter : IOutputSafetyFilter
-{
-    public SafetyFilterResult Apply(string response)
-    {
-        return new SafetyFilterResult
-        {
-            FilteredResponse = $"{response}  - scrubbedd",
-            PiiWasRedacted = true,
-            RedactedItems = new List<PiiMatch>()
-        };
-    }
-}
-
-#endregion
-
-// ---------------------------------------------------------------------------
-// QueryService
-// ---------------------------------------------------------------------------
 
 [TestFixture]
 public class QueryServiceTests
@@ -98,11 +16,8 @@ public class QueryServiceTests
     private FakeEmbeddingService _embeddingService = null!;
     private FakeVectorStore _vectorStore = null!;
     private FakeLLMService _llmService = null!;
-    private FakePiiDetector _piiDetector = null!;
-    private FakeOutputSafetyFilter _safetyFilter = null!;
-
-    private Logger<QueryService> _logger;
-
+    private FakeAuditLogger _auditLogger = null!;
+    private FakeQueryRelevanceChecker _queryRelevanceChecker = null!;
     private QueryService _sut = null!;
 
     [SetUp]
@@ -111,19 +26,40 @@ public class QueryServiceTests
         _embeddingService = new FakeEmbeddingService();
         _vectorStore = new FakeVectorStore();
         _llmService = new FakeLLMService();
-        _piiDetector = new FakePiiDetector();
-        _safetyFilter = new FakeOutputSafetyFilter();
+        _auditLogger = new FakeAuditLogger();
+        _queryRelevanceChecker = new FakeQueryRelevanceChecker();
 
-        _sut = new QueryService(_embeddingService, _vectorStore, _llmService, _piiDetector, _safetyFilter, _logger);
+        _sut = BuildQueryService(threshold: 0.5f);
+    }
+
+    private QueryService BuildQueryService(float threshold)
+    {
+        var piiDetector = new RegexPiiDetector();
+        var safetyFilter = new OutputSafetyFilter(
+            piiDetector,
+            OptionsHelper.For(new DisclaimerOptions { Enabled = false }),
+            NullLogger<OutputSafetyFilter>.Instance);
+
+        return new QueryService(
+            _embeddingService,
+            _vectorStore,
+            _llmService,
+            piiDetector,
+            safetyFilter,
+            _queryRelevanceChecker,
+            _auditLogger,
+            OptionsHelper.For(new QueryOptions { ConfidenceThreshold = threshold }),
+            OptionsHelper.For(new RelevanceOptions { Enabled = true }),
+            NullLogger<QueryService>.Instance);
     }
 
     [Test]
     public async Task AskAsync_ReturnsAnswerFromLLMService()
     {
         _llmService.AnswerToReturn = "Revenue grew by 12%";
-        _vectorStore.ChunksToReturn = new List<DocumentChunk>
+        _vectorStore.ChunksToReturn = new List<ScoredChunk>
         {
-            new DocumentChunk { Id = Guid.NewGuid(), Content = "Some context", Title = "Doc1", Embedding = new float[] { 0.1f, 0.2f, 0.3f } }
+            new ScoredChunk { Chunk = new DocumentChunk { Id = Guid.NewGuid(), Content = "Some context", Title = "Doc1" , Embedding = new float[] { 0.1f, 0.2f, 0.3f } } }
         };
 
         var result = await _sut.AskAsync(new QueryRequest { Query = "Revenue?" }, CancellationToken.None);
@@ -154,10 +90,10 @@ public class QueryServiceTests
     [Test]
     public async Task AskAsync_SourcesContainChunkTitles()
     {
-        _vectorStore.ChunksToReturn = new List<DocumentChunk>
+        _vectorStore.ChunksToReturn = new List<ScoredChunk>
         {
-            new DocumentChunk { Title = "Annual Report 2024", Content = "...", Embedding = new float[] { 0.1f, 0.2f, 0.3f } },
-            new DocumentChunk { Title = "Q3 Earnings",        Content = "...", Embedding = new float[] { 0.1f, 0.2f, 0.3f } },
+            new ScoredChunk { Chunk = new DocumentChunk { Id = Guid.NewGuid(), Content = "...", Title = "Annual Report 2024" , Embedding = new float[] { 0.1f, 0.2f, 0.3f } } },
+            new ScoredChunk { Chunk = new DocumentChunk { Id = Guid.NewGuid(), Content = "...", Title = "Q3 Earnings" , Embedding = new float[] { 0.1f, 0.2f, 0.3f } } }
         };
 
         var result = await _sut.AskAsync(new QueryRequest { Query = "Earnings?" }, CancellationToken.None);
@@ -168,7 +104,7 @@ public class QueryServiceTests
     [Test]
     public async Task AskAsync_WhenNoChunksFound_ReturnsEmptySources()
     {
-        _vectorStore.ChunksToReturn = new List<DocumentChunk>();
+        _vectorStore.ChunksToReturn = new List<ScoredChunk>();
 
         var result = await _sut.AskAsync(new QueryRequest { Query = "anything" }, CancellationToken.None);
 
@@ -178,10 +114,10 @@ public class QueryServiceTests
     [Test]
     public async Task AskAsync_PassesChunkContentAsContextToLLM()
     {
-        _vectorStore.ChunksToReturn = new List<DocumentChunk>
+        _vectorStore.ChunksToReturn = new List<ScoredChunk>
         {
-            new DocumentChunk { Content = "Profit was $5B", Title = "T1", Embedding = new float[] { 0.1f, 0.2f, 0.3f } },
-            new DocumentChunk { Content = "Revenue was $20B", Title = "T2", Embedding = new float[] { 0.1f, 0.2f, 0.3f } },
+            new ScoredChunk { Chunk = new DocumentChunk { Id = Guid.NewGuid(), Content = "Profit was $5B", Title = "T1" , Embedding = new float[] { 0.1f, 0.2f, 0.3f } } },
+            new ScoredChunk { Chunk = new DocumentChunk { Id = Guid.NewGuid(), Content = "Revenue was $20B", Title = "T2" , Embedding = new float[] { 0.1f, 0.2f, 0.3f } } },
         };
 
         await _sut.AskAsync(new QueryRequest { Query = "Financials?" }, CancellationToken.None);
@@ -328,7 +264,7 @@ public class InMemoryVectorStoreTests
 
         var results = await _sut.SearchAsync(new float[] { 1f, 0f, 0f }, 1, CancellationToken.None);
 
-        Assert.That(results.Single().Id, Is.EqualTo(chunk.Id));
+        Assert.That(results.Single().Chunk.Id, Is.EqualTo(chunk.Id));
     }
 
     [Test]
@@ -353,7 +289,7 @@ public class InMemoryVectorStoreTests
 
         var results = (await _sut.SearchAsync(new float[] { 1f, 0f, 0f }, 2, CancellationToken.None)).ToList();
 
-        Assert.That(results[0].Id, Is.EqualTo(highSimilarity.Id));
+        Assert.That(results[0].Chunk.Id, Is.EqualTo(highSimilarity.Id));
     }
 
     [Test]
@@ -383,7 +319,7 @@ public class InMemoryVectorStoreTests
 
         var results = (await _sut.SearchAsync(new float[] { 0.6f, 0.8f, 0f }, 1, CancellationToken.None)).ToList();
 
-        Assert.That(results[0].Id, Is.EqualTo(chunk.Id));
+        Assert.That(results[0].Chunk.Id, Is.EqualTo(chunk.Id));
     }
 
     [Test]
@@ -397,7 +333,7 @@ public class InMemoryVectorStoreTests
 
         var results = (await _sut.SearchAsync(new float[] { 1f, 0f, 0f }, 2, CancellationToken.None)).ToList();
 
-        Assert.That(results.Last().Id, Is.EqualTo(orthogonal.Id));
+        Assert.That(results.Last().Chunk.Id, Is.EqualTo(orthogonal.Id));
     }
 }
 
